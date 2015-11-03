@@ -1,4 +1,6 @@
-# [Start Bootstrap](http://startbootstrap.com/) - [Blog Post](http://startbootstrap.com/template-overviews/blog-post/)
+# A very simple little microblogging engine and frontend.  Uses golang and bootstrap with some templates
+
+[Start Bootstrap](http://startbootstrap.com/) - [Blog Post](http://startbootstrap.com/template-overviews/blog-post/)
 
 [Blog Post](http://startbootstrap.com/template-overviews/blog-post/) is a basic blog post HTML starter template for [Bootstrap](http://getbootstrap.com/) created by [Start Bootstrap](http://startbootstrap.com/).
 
