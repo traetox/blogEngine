@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -10,12 +11,14 @@ import (
 )
 
 var (
-	root             = flag.String("root", "/tmp/files", "Root directory for serving files")
-	addr		 = flag.String("addr", "192.210.192.202", "Address to bind to")
-	port             = flag.Int("port", 80, "port to listen on")
-	logFile          = flag.String("log-file", "/var/log/access.log", "Log file to output to")
-	templateDir      = flag.String("templates", "/opt/templates/", "directory containing templates")
-	outLog  *os.File = nil
+	root                 = flag.String("root", "/tmp/files", "Root directory for serving files")
+	addr                 = flag.String("addr", "", "Address to bind to")
+	port                 = flag.Int("port", 80, "port to listen on")
+	logFile              = flag.String("log-file", "/var/log/access.log", "Log file to output to")
+	templateDir          = flag.String("templates", "/opt/templates/", "directory containing templates")
+	postDB               = flag.String("postdb", "", "Database file path")
+	passFile             = flag.String("passfile", "", "Password file")
+	outLog      *os.File = nil
 )
 
 func init() {
@@ -26,6 +29,14 @@ func init() {
 	}
 	if *port <= 0 || *port >= 0xffff {
 		fmt.Printf("ERROR: I need a usable port to serve on (0 > port > %d)\n", 0xffff)
+		os.Exit(-1)
+	}
+	if *postDB == "" {
+		fmt.Printf("ERROR: I need a post DB path\n")
+		os.Exit(-1)
+	}
+	if *passFile == "" {
+		fmt.Printf("ERROR: I need a password file\n")
 		os.Exit(-1)
 	}
 	if *addr == "" {
@@ -58,12 +69,30 @@ func init() {
 		if outLog != nil {
 			outLog.Close()
 		}
+		ClosePostDB()
 		os.Exit(0)
 	}()
 }
 
 func main() {
 	defer outLog.Close()
+
+	bts, err := ioutil.ReadFile(*passFile)
+	if err != nil {
+		fmt.Printf("Failed to read password file: %v\n", err)
+		return
+	}
+	if err := SetUpdatePassword(string(bts)); err != nil {
+		fmt.Printf("Failed to set password: %v\n", err)
+		return
+	}
+
+	if err := InitPostDB(*postDB); err != nil {
+		fmt.Printf("Failed to init post DB: %v\n", err)
+		return
+	}
+	defer ClosePostDB()
+
 	//grab handle on listener
 	lst, err := net.Listen("tcp", *addr)
 	if err != nil {
@@ -77,9 +106,9 @@ func main() {
 	mux := http.NewServeMux()
 	dirs := []string{"/files/", "/js/", "/css/", "/fonts"}
 	for i := range dirs {
-		mux.Handle(dirs[i], LogAndServe(http.StripPrefix(dirs[i], http.FileServer(http.Dir(*root + dirs[i])))))
+		mux.Handle(dirs[i], LogAndServe(http.StripPrefix(dirs[i], http.FileServer(http.Dir(*root+dirs[i])))))
 	}
 	mux.HandleFunc("/", templateHandler)
+	mux.HandleFunc("/update", postUpdateHandler)
 	panic(http.Serve(lst, mux))
 }
-

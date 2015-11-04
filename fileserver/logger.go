@@ -1,14 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"time"
-	"fmt"
 )
 
 type ResponseCapture struct {
-	w http.ResponseWriter
+	w    http.ResponseWriter
 	code int
 }
 
@@ -29,7 +29,7 @@ func (rc *ResponseCapture) Code() int { return rc.code }
 
 func NewResponseCapture(rw http.ResponseWriter) *ResponseCapture {
 	return &ResponseCapture{
-		w: rw,
+		w:    rw,
 		code: 200,
 	}
 }
