@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"../blogpost"
 	"github.com/boltdb/bolt"
+	"github.com/traetox/blogEngine/blogpost"
 )
 
 const (
