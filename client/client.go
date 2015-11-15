@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	"../blogpost"
+	"github.com/traetox/blogEngine/blogpost"
 )
 
 var (

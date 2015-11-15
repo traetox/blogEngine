@@ -9,7 +9,7 @@ import (
 	"path"
 	"text/template"
 
-	"../blogpost"
+	"github.com/traetox/blogEngine/blogpost"
 )
 
 var (
