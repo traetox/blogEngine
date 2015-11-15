@@ -1,16 +1,15 @@
 package main
 
 import (
-	"crypto/sha512"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"math/rand"
 	"net/http"
 	"os"
 	"path"
 	"text/template"
+
+	"../blogpost"
 )
 
 var (
@@ -18,16 +17,17 @@ var (
 	db               *boltDB
 	lastRand         int64
 	lastRandReqAddr  string
-	password         string
+	passbytes        []byte
 
 	errNotAuthorized = errors.New("not authorized")
+	errNilDB         = errors.New("Nil DB")
 )
 
-func SetUpdatePassword(pass string) error {
-	if password != "" {
+func SetUpdatePassbytes(pass []byte) error {
+	if passbytes != nil {
 		return errors.New("Already set")
 	}
-	password = pass
+	passbytes = pass
 	return nil
 }
 
@@ -72,10 +72,12 @@ func postUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		lastRandReqAddr = r.RemoteAddr
 		lastRand = rand.Int63()
-		fmt.Fprintf(w, "%d", lastRand)
-	case "PUT":
+		if err := binary.Write(w, binary.LittleEndian, lastRand); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	case "POST":
 		if err := decodeNewUpdate(lastRand, lastRandReqAddr, r); err != nil {
-			rc.WriteHeader(http.StatusInternalServerError)
+			rc.WriteHeader(http.StatusForbidden)
 		}
 		lastRand = 0
 	default:
@@ -113,7 +115,7 @@ func getLatest(rc *ResponseCapture) error {
 	bp, err := db.LatestPost()
 	if err != nil {
 		if err == errNoPosts {
-			bp = BlogPost{
+			bp = blogpost.BlogPost{
 				Title: "Nothing here yet",
 			}
 		} else {
@@ -127,54 +129,46 @@ func getLatest(rc *ResponseCapture) error {
 }
 
 func getUpdate(rc *ResponseCapture, req string) error {
+	t, err := template.ParseFiles(mainTemplateFile)
+	if err != nil {
+		return err
+	}
+	bp, err := db.Get(req)
+	if err != nil {
+		if err == errNotFound {
+			custom404(rc)
+			return nil
+		} else {
+			return err
+		}
+	}
+	if err := t.Execute(rc, bp); err != nil {
+		return err
+	}
 	return nil
 }
 
-type newBlogPost struct {
-	Auth []byte
-	Name string
-	BP   BlogPost
-}
-
 func decodeNewUpdate(seed int64, lastSeedAddr string, r *http.Request) error {
-	var nbp newBlogPost
-	if seed == 0 || lastSeedAddr == "" || password == "" {
+	defer r.Body.Close()
+	if seed == 0 || lastSeedAddr == "" || passbytes == nil {
 		return errors.New("no seed set")
 	}
-	defer r.Body.Close()
-	jdec := json.NewDecoder(r.Body)
-	if err := jdec.Decode(&nbp); err != nil {
+	var bp blogpost.BlogPost
+	var name string
+	if err := blogpost.ReadBlogPost(r.Body, &bp, &name, seed, passbytes); err != nil {
 		return err
 	}
-	//check if the authentication checks out
-	res := hashIt(seed, password)
 
-	//check out out
-	if len(res) != len(nbp.Auth) {
-		return errNotAuthorized
+	if err := db.Add(name, &bp); err != nil {
+		return err
 	}
-	for i := 0; i < len(res); i++ {
-		if res[i] != nbp.Auth[i] {
-			return errNotAuthorized
-		}
-	}
-	//it checks out
-	if db != nil {
-		return db.Add(nbp.Name, &nbp.BP)
-	}
-	return errors.New("db is not ready")
+	return nil
 }
 
-func hashIt(seed int64, pass string) []byte {
-	buff := make([]byte, 8)
-	binary.PutVarint(buff, seed)
-	hsh := sha512.New()
-	hsh.Write(buff)
-	hsh.Write([]byte(password))
-	hsh.Write(buff)
-	res := hsh.Sum(nil)
-	for i := 0; i < 256; i++ {
-		res = hsh.Sum(res)
-	}
-	return res
+func custom404(rc *ResponseCapture) {
+	rc.WriteHeader(http.StatusNotFound)
+	b := []byte(`<h1>Error 404<h1>
+		  <h4>There is nothing to see here</h4>
+		  <h5>No, really, I couldn't find anything.</h5>`)
+	rc.Write(b)
 }

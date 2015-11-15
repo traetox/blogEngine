@@ -82,7 +82,7 @@ func main() {
 		fmt.Printf("Failed to read password file: %v\n", err)
 		return
 	}
-	if err := SetUpdatePassword(string(bts)); err != nil {
+	if err := SetUpdatePassbytes(bts); err != nil {
 		fmt.Printf("Failed to set password: %v\n", err)
 		return
 	}

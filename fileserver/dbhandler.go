@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"../blogpost"
 	"github.com/boltdb/bolt"
 )
 
@@ -25,14 +26,8 @@ var (
 type boltDB struct {
 	mtx            *sync.Mutex
 	db             *bolt.DB
-	cache          map[string]*BlogPost
+	cache          map[string]*blogpost.BlogPost
 	postListCached []PostTS
-}
-
-type BlogPost struct {
-	Title   string
-	Date    time.Time
-	Content string
 }
 
 type PostTS struct {
@@ -57,7 +52,7 @@ func NewBlogDB(dbFile string) (*boltDB, error) {
 	db := &boltDB{
 		mtx:   &sync.Mutex{},
 		db:    bdb,
-		cache: make(map[string]*BlogPost, 1),
+		cache: make(map[string]*blogpost.BlogPost, 1),
 	}
 	if err := db.nlInitCache(); err != nil {
 		db.Close()
@@ -85,7 +80,7 @@ func (db *boltDB) nlInitCache() error {
 		b := tx.Bucket(dbId)
 		c := b.Cursor()
 		for name, bpbuff := c.First(); name != nil; name, bpbuff = c.Next() {
-			var bp BlogPost
+			var bp blogpost.BlogPost
 			bb := bytes.NewBuffer(bpbuff)
 			gdec := gob.NewDecoder(bb)
 			if err := gdec.Decode(&bp); err != nil {
@@ -100,7 +95,7 @@ func (db *boltDB) nlInitCache() error {
 	return nil
 }
 
-func (db *boltDB) Add(name string, bp *BlogPost) error {
+func (db *boltDB) Add(name string, bp *blogpost.BlogPost) error {
 	db.mtx.Lock()
 	defer db.mtx.Unlock()
 	if db.db == nil {
@@ -120,7 +115,7 @@ func (db *boltDB) Add(name string, bp *BlogPost) error {
 	return db.invalidatePostListCache()
 }
 
-func (db *boltDB) Get(name string) (*BlogPost, error) {
+func (db *boltDB) Get(name string) (*blogpost.BlogPost, error) {
 	db.mtx.Lock()
 	defer db.mtx.Unlock()
 	if db.db == nil {
@@ -154,7 +149,7 @@ func (db *boltDB) Delete(name string) error {
 	return db.invalidatePostListCache()
 }
 
-func (db *boltDB) dbAdd(name string, bp *BlogPost) error {
+func (db *boltDB) dbAdd(name string, bp *blogpost.BlogPost) error {
 	return db.db.Update(func(tx *bolt.Tx) error {
 		bb := bytes.NewBuffer(nil)
 		genc := gob.NewEncoder(bb)
@@ -166,14 +161,14 @@ func (db *boltDB) dbAdd(name string, bp *BlogPost) error {
 	})
 }
 
-func (db *boltDB) dbGet(name string) (*BlogPost, error) {
-	var bp BlogPost
+func (db *boltDB) dbGet(name string) (*blogpost.BlogPost, error) {
+	var bp blogpost.BlogPost
 	//check if there is already something in the DB for today
 	if err := db.db.View(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket(dbId)
 		currBB := bkt.Get([]byte(name))
 		if currBB == nil {
-			return nil
+			return errNotFound
 		}
 		bb := bytes.NewBuffer(currBB)
 		gdec := gob.NewDecoder(bb)
@@ -207,8 +202,8 @@ func (db *boltDB) OrderedNameList() ([]PostTS, error) {
 	return pl, nil
 }
 
-func (db *boltDB) LatestPost() (BlogPost, error) {
-	var lp BlogPost
+func (db *boltDB) LatestPost() (blogpost.BlogPost, error) {
+	var lp blogpost.BlogPost
 	db.mtx.Lock()
 	defer db.mtx.Unlock()
 	if db.db == nil {
