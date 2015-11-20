@@ -39,10 +39,10 @@ func init() {
 		fmt.Printf("ERROR: I need a password file\n")
 		os.Exit(-1)
 	}
-	if *addr == "" {
-		fmt.Printf("ERROR: I need an IP to bind too\n")
-		os.Exit(-1)
+	if *port != 0 {
+		*addr = fmt.Sprintf("%s:%d", *addr, *port)
 	}
+
 	fi, err := os.Stat(*root)
 	if err != nil {
 		fmt.Printf("ERROR: %s does not exist\t%v\n", *root, err)
@@ -99,6 +99,7 @@ func main() {
 		fmt.Printf("Failed to get listener: %v\n", err)
 		return
 	}
+
 	if err := SetMainTemplateFile(*templateDir + "/main.template"); err != nil {
 		fmt.Printf("Failed to find main template: %v\n", err)
 		return
