@@ -51,6 +51,9 @@
                     <li>
                         <a href="/contact">Contact</a>
                     </li>
+                    <li>
+                        <a href="/disclosure-policy">Disclosure Policy</a>
+                    </li>
                 </ul>
             </div>
             <!-- /.navbar-collapse -->
@@ -70,11 +73,8 @@
                 <hr>
                 <!-- Post Content -->
                 {{.Content}}
-                <hr>
-                </div>
             </div>
         </div>
-        <!-- /.row -->
         <!-- Footer -->
         <footer>
             <div class="row">

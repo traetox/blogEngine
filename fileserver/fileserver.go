@@ -105,7 +105,7 @@ func main() {
 		return
 	}
 	mux := http.NewServeMux()
-	dirs := []string{"/files/", "/js/", "/css/", "/fonts"}
+	dirs := []string{"/pics/", "/files/", "/js/", "/css/", "/fonts"}
 	for i := range dirs {
 		mux.Handle(dirs[i], LogAndServe(http.StripPrefix(dirs[i], http.FileServer(http.Dir(*root+dirs[i])))))
 	}
